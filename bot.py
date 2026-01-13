@@ -54,7 +54,11 @@ async def anket(_, q):
 async def anket_steps(_, m: Message):
     uid = m.from_user.id
 
-    if user_state[uid] == "name":
+    if uid not in user_state:
+        # PM-də digər yazılara cavab vermir
+        return
+
+    if user_state.get(uid) == "name":
         database.cur.execute(
             "INSERT OR IGNORE INTO users (user_id,name) VALUES (?,?)",
             (uid, m.text)
@@ -63,7 +67,7 @@ async def anket_steps(_, m: Message):
         user_state[uid] = "age"
         await m.reply("**Yaşınız neçədir?**")
 
-    elif user_state[uid] == "age":
+    elif user_state.get(uid) == "age":
         if not m.text.isdigit():
             return await m.reply("Yaşı rəqəmlə yazın")
         database.cur.execute(
@@ -74,7 +78,7 @@ async def anket_steps(_, m: Message):
         user_state[uid] = "accept"
         await m.reply("**Dərslərə qoşulmaqa könüllü razısınızmı?\nBəli / Xeyr**")
 
-    elif user_state[uid] == "accept":
+    elif user_state.get(uid) == "accept":
         if m.text.lower() not in ["bəli", "xeyr"]:
             return await m.reply("Yalnız Bəli və ya Xeyr")
         database.cur.execute(
@@ -127,8 +131,6 @@ async def send_test():
         await app.send_message(config.CHANNEL_LINK, "⚠️ Bu günün sözləri və ya qrammatikası yoxdur.")
         return
 
-    t = choice(TESTS)
-    # Testi sözlər və qrammatika üzrə düzəldə bilərsən
     test_text = "**Gün sonunun testi!**\n"
     for i, q in enumerate(daily_data["words"] + [daily_data["grammar"]], 1):
         test_text += f"Sual {i} • {q[0] if isinstance(q, tuple) else q}\n"
@@ -149,42 +151,12 @@ async def send_answers():
 async def admin_word(_, m: Message):
     await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
 
-# ================= AI KOMANDA =================
-@app.on_message(filters.private & filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
-async def ai_command(_, m: Message):
-    user_input = m.matches[0].group(1) if m.matches else ""
-    user_input = user_input.strip()
-    if not user_input:
-        return await m.reply(
-            "✍️ Zəhmət olmasa /sual əmri ilə sualınızı yazın.\n"
-            "Məsələn: `/sual Fars dili nə üçün önəmlidir?`"
-        )
-    try:
-        resp = requests.post(
-            API_URL,
-            headers=HEADERS,
-            json={
-                "message": [{"type": "text", "text": user_input}],
-                "chatId": str(m.chat.id),
-                "generatorType": "CodeGenerator"
-            },
-            timeout=10
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            reply_text = data.get("response", "⚠️ Cavab tapılmadı.")
-        else:
-            reply_text = f"⚠️ Server xətası: {resp.status_code}"
-    except Exception as e:
-        reply_text = f"❌ Sorğu zamanı xəta baş verdi:\n{e}"
-    await m.reply(reply_text)
-
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=21, minute=4)  # Günün sözləri
-scheduler.add_job(send_grammar, "cron", hour=21, minute=5)       # Qrammatika
-scheduler.add_job(send_test, "cron", hour=21, minute=6)          # Test
-scheduler.add_job(send_answers, "cron", hour=21, minute=7)       # Test cavabları
+scheduler.add_job(send_daily_words, "cron", hour=21, minute=21)
+scheduler.add_job(send_grammar, "cron", hour=21, minute=22)
+scheduler.add_job(send_test, "cron", hour=21, minute=23)
+scheduler.add_job(send_answers, "cron", hour=21, minute=24)
 scheduler.start()
 
 app.run()
