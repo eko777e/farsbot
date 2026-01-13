@@ -5,4 +5,3 @@ BOT_TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
 ADMIN_IDS = [8493825254]
 CHANNEL_LINK = "@farsdersleri"  # məsələn: @fars_dersleri
 TIMEZONE = "Asia/Baku"
-CHANNEL_LINK = "https://t.me/farsdersleri"
