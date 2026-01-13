@@ -1,169 +1,126 @@
-from pyrogram import Client, filters, enums
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from random import sample, choice
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 import pytz
-import requests, json
+import random
 
-import config
-import database
-from words import WORDS
-from gram import GRAMMAR
-from tests import TESTS
+from word import daily_words
+from gram import grammar_lessons
+from tests import daily_tests  # Testlərdə default cavablar da var
 
-app = Client(
-    "farsbot",
-    api_id=config.API_ID,
-    api_hash=config.API_HASH,
-    bot_token=config.BOT_TOKEN
-)
+TOKEN = "BOT_TOKENİNİZİ_BURAYA_QOYUN"
+CHANNEL_ID = "@kanal_username"
+ADMIN_ID = 123456789
 
-user_state = {}
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+user_data = {}
 
-API_URL = "https://aicodegenerator.ifscswiftcodeapp.in/api.php"
-HEADERS = {
-    "Content-Type": "application/json",
-    "User-Agent": "Mozilla/5.0"
-}
+# Start və Anket
+@bot.message_handler(commands=["start"])
+def start(message):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📜 Anket", callback_data="anket"))
+    bot.send_message(message.chat.id,
+                     "Salam zəhmət olmasa Anket buttonuna toxunaraq məlumatları doldurun ✍️",
+                     reply_markup=markup)
 
-daily_data = {
-    "words": [],
-    "grammar": []
-}
+@bot.callback_query_handler(func=lambda c: c.data == "anket")
+def anket(call):
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    msg = bot.send_message(call.message.chat.id, "Adınız Nədir?")
+    bot.register_next_step_handler(msg, get_name)
 
-# ================= START =================
-@app.on_message(filters.command("start"))
-async def start(_, m: Message):
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📜 Anket", callback_data="anket")]
-    ])
-    await m.reply(
-        "Salam 👋\nZəhmət olmasa **Anket** buttonuna toxunaraq məlumatları doldurun ✍️",
-        reply_markup=kb
+def get_name(message):
+    user_data[message.from_user.id] = {"ad": message.text}
+    msg = bot.send_message(message.chat.id, "Yaşınız neçədir?")
+    bot.register_next_step_handler(msg, get_age)
+
+def get_age(message):
+    user_data[message.from_user.id]["yas"] = message.text
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("Bəli", callback_data="vol_yes"),
+        InlineKeyboardButton("Xeyr", callback_data="vol_no")
     )
+    bot.send_message(message.chat.id, "Dərslərə qoşulmaqa könüllü razısınızmı?", reply_markup=markup)
 
-# ================= ANKET =================
-@app.on_callback_query(filters.regex("^anket$"))
-async def anket(_, q):
-    user_state[q.from_user.id] = "name"
-    await q.message.edit("**Adınız nədir?**")
+@bot.callback_query_handler(func=lambda c: c.data in ["vol_yes", "vol_no"])
+def volunteer(call):
+    if call.data == "vol_yes":
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📚 Dərs Kanalı", url="https://t.me/kanal_linkiniz"))
+        bot.send_message(call.message.chat.id,
+                         "Zəhmət olmasa Dərs Kanalı buttonuna toxunaraq kanala qatılın",
+                         reply_markup=markup)
+    else:
+        bot.send_message(call.message.chat.id,
+                         "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
-@app.on_message(filters.private & filters.text & ~filters.command(["start", "sual"]))
-async def anket_steps(_, m: Message):
-    uid = m.from_user.id
-    if uid not in user_state:
+# Admin manual söz göndərmə
+@bot.message_handler(commands=["gsoz"])
+def admin_add_word(message):
+    if message.from_user.id != ADMIN_ID:
         return
+    if message.reply_to_message:
+        bot.send_message(CHANNEL_ID, message.reply_to_message.text)
 
-    if user_state[uid] == "name":
-        database.cur.execute(
-            "INSERT OR IGNORE INTO users (user_id, name) VALUES (?,?)",
-            (uid, m.text)
-        )
-        database.db.commit()
-        user_state[uid] = "age"
-        await m.reply("**Yaşınız neçədir?**")
+# Günlük ardıcıllıq
+current_day_index = 0
+days_list = list(daily_words.keys())
+tz = pytz.timezone("Asia/Baku")
 
-    elif user_state[uid] == "age":
-        if not m.text.isdigit():
-            return await m.reply("Yaşı yalnız rəqəmlə yazın.")
-        database.cur.execute(
-            "UPDATE users SET age=? WHERE user_id=?",
-            (m.text, uid)
-        )
-        database.db.commit()
-        user_state[uid] = "accept"
-        await m.reply("**Dərslərə qatılmağa razısınız? (Bəli / Xeyr)**")
+scheduler = BackgroundScheduler(timezone=tz)
 
-    elif user_state[uid] == "accept":
-        if m.text.lower() not in ["bəli", "xeyr"]:
-            return await m.reply("Yalnız **Bəli** və ya **Xeyr** yazın.")
-        database.cur.execute(
-            "UPDATE users SET accepted=? WHERE user_id=?",
-            (m.text.lower(), uid)
-        )
-        database.db.commit()
-        del user_state[uid]
+# 08:00 Günün sözləri
+def send_daily_words():
+    global current_day_index
+    today_day = days_list[current_day_index]
+    msg = ""
+    for w in daily_words[today_day]:
+        msg += f"{w[0]} • {w[1]} • {w[2]}\n"
+    bot.send_message(CHANNEL_ID, msg)
 
-        if m.text.lower() == "bəli":
-            await m.reply(
-                "🎉 Əla!\nDərslər kanalında görüşərik:\n"
-                "👉 https://t.me/farsdersleri"
-            )
-        else:
-            await m.reply("Razı olmadığınız üçün proses dayandırıldı.")
+# 13:00 Qrammatika
+def send_daily_grammar():
+    bot.send_message(CHANNEL_ID, "Gündəlik Qrammatika:\n\n" + "\n".join(grammar_lessons))
 
-# ================= GÜNÜN SÖZLƏRİ =================
-async def send_daily_words():
-    words = sample(WORDS, 5)
-    daily_data["words"] = words
-    text = "\n".join([f"🔹 {f} — {a}" for f, a in words])
-    await app.send_message(config.CHANNEL_ID, f"📘 **Günün sözləri**\n\n{text}")
+# 19:00 Günün testi (3 söz + 2 qrammatika)
+def send_daily_test():
+    global current_day_index
+    today_day = days_list[current_day_index]
+    words = daily_words[today_day]
 
-# ================= QRAMMATİKA =================
-async def send_grammar():
-    grammar = choice(GRAMMAR)
-    daily_data["grammar"] = grammar
-    await app.send_message(config.CHANNEL_ID, f"📗 **Günün qrammatikası**\n\n{grammar}")
+    # 3 sual sözlərdən (random)
+    word_questions = random.sample(words, min(3, len(words)))
+    word_sual = [f"Sual • {w[2]} sözünü fars dilində yazın?" for w in word_questions]
+    word_cavab = [f"Cavab • {w[0]}" for w in word_questions]
 
-# ================= TEST =================
-async def send_test():
-    text = "📝 **Günün testi**\n\n"
-    i = 1
-    for f, _ in daily_data["words"]:
-        text += f"{i}) `{f}` nə deməkdir?\n"
-        i += 1
-    text += f"\n{i}) Bu günkü qrammatikanı izah edin."
-    await app.send_message(config.CHANNEL_ID, text)
+    # 2 sual qrammatikadan (random)
+    gram_questions = random.sample(grammar_lessons, 2)
+    gram_sual = [f"Sual • {q} haqqında sual" for q in gram_questions]
+    gram_cavab = [f"Cavab • Nümunə / izah: {q}" for q in gram_questions]
 
-# ================= CAVABLAR =================
-async def send_answers():
-    text = "✅ **Test cavabları**\n\n"
-    i = 1
-    for _, a in daily_data["words"]:
-        text += f"{i}) {a}\n"
-        i += 1
-    text += f"\n{i}) Qrammatika izah mətni."
-    await app.send_message(config.CHANNEL_ID, text)
+    # Bir mesajda suallar
+    test_msg = "\n".join(word_sual + gram_sual)
+    bot.send_message(CHANNEL_ID, "Günün testi:\n\n" + test_msg)
 
-# ================= AI /sual =================
-@app.on_message(filters.command("sual"))
-async def ai_command(_, m: Message):
-    if len(m.command) < 2:
-        return await m.reply(
-            "✍️ Sualı belə yazın:\n"
-            "`/sual fars dili nə üçün vacibdir?`"
-        )
+    # Cavablar 21:00
+    def send_answers():
+        ans_msg = "\n".join(word_cavab + gram_cavab)
+        bot.send_message(CHANNEL_ID, "Günün test cavabları:\n\n" + ans_msg)
+        # Növbəti günə keç
+        global current_day_index
+        current_day_index += 1
+        if current_day_index >= len(days_list):
+            current_day_index = 0
 
-    user_input = " ".join(m.command[1:])
+    scheduler.add_job(send_answers, 'cron', hour=21, minute=0)
 
-    try:
-        resp = requests.post(
-            API_URL,
-            headers=HEADERS,
-            json={
-                "message": [{"type": "text", "text": user_input}],
-                "chatId": str(m.chat.id),
-                "generatorType": "CodeGenerator"
-            },
-            timeout=15
-        )
+# Scheduler əlavə et
+scheduler.add_job(send_daily_words, 'cron', hour=8, minute=0)
+scheduler.add_job(send_daily_grammar, 'cron', hour=13, minute=0)
+scheduler.add_job(send_daily_test, 'cron', hour=19, minute=0)
 
-        if resp.status_code == 200:
-            reply_text = resp.json().get("response", "⚠️ Cavab tapılmadı.")
-        else:
-            reply_text = f"⚠️ Server xətası: {resp.status_code}"
-
-    except Exception as e:
-        reply_text = f"❌ Xəta:\n`{e}`"
-
-    await m.reply(reply_text)
-
-# ================= SCHEDULER =================
-scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=21, minute=4)
-scheduler.add_job(send_grammar, "cron", hour=21, minute=5)
-scheduler.add_job(send_test, "cron", hour=21, minute=6)
-scheduler.add_job(send_answers, "cron", hour=21, minute=7)
 scheduler.start()
-
-app.run()
+bot.infinity_polling()
