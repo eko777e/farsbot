@@ -1,104 +1,39 @@
 # tests.py
+# Struktur: "Gün X": {"sual": [(sual_text, [variant1, variant2, variant3], düzgün_index), ...], "cavab": [...]}
 
-# Hər gün üçün 5 sual: 3 söz + 2 qrammatika
 daily_tests = {
     "Gün 1": {
-        "ders": "Əvvəl indiki zaman",
         "sual": [
-            # Sözlərdən
-            "Salam sözünün fars dilində tərcüməsi nədir?",
-            "خوب sözünün tələffüzü necədir?",
-            "دوست sözünü Azərbaycan dilinə tərcümə et",
-            # Qrammatikadan
-            "İndiki zamanda 'mən getmək' felini düzgün yazın",
-            "İndiki zamanda 'sən oxumaq' felini düzgün yazın"
+            ("سلام **hansı bənddə düzgün yazılıb?**", ["salam", "selam", "sallam"], 0),
+            ("دوست **hansı bənddə düzgün yazılıb?**", ["dust", "dostt", "doost"], 0),
+            ("کتاب **hansı bənddə düzgün yazılıb?**", ["ketab", "kitab", "ketopp"], 0),
+            # Qrammatika sualları
+            ("İndiki zaman fel **hansı cümlədə düzgündür?**", ["Mən gedirəm", "Mən gedəcəm", "Mən getdim"], 0),
+            ("Məchul fel **hansı cümlədə düzgündür?**", ["Ev təmizlənir", "Ev təmizləndi", "Ev təmizləyir"], 0)
         ],
         "cavab": [
-            "Salam",
-            "xub",
-            "Dost",
+            "salam",
+            "dust",
+            "ketab",
             "Mən gedirəm",
-            "Sən oxuyursan"
+            "Ev təmizlənir"
         ]
     },
-
     "Gün 2": {
-        "ders": "Zamanların inkarı",
         "sual": [
-            # Sözlərdən
-            "مدرسه sözünün Azərbaycan dilinə tərcüməsi nədir?",
-            "معلم sözünün tələffüzü necədir?",
-            "درس sözünü Azərbaycan dilinə tərcümə et",
-            # Qrammatikadan
-            "İndiki zamanda 'mən getmək' felinin inkar formasını yazın",
-            "İndiki zamanda 'sən oxumaq' felinin inkar formasını yazın"
+            ("مدرسه **hansı bənddə düzgün yazılıb?**", ["madrese", "madraze", "madres"], 0),
+            ("معلم **hansı bənddə düzgün yazılıb?**", ["moalem", "moalemm", "mualem"], 0),
+            ("دانشجو **hansı bənddə düzgün yazılıb?**", ["daneshju", "daneshjoo", "daneshyoo"], 0),
+            # Qrammatika sualları
+            ("Zamanların inkari **hansı cümlədə düzgündür?**", ["Mən getmirəm", "Mən getdim", "Mən gedirəm"], 0),
+            ("Məchul fel **hansı cümlədə düzgündür?**", ["Ev təmizlənir", "Ev təmizlədi", "Ev təmizləyir"], 0)
         ],
         "cavab": [
-            "Məktəb",
-            "moalem",
-            "Dərs",
-            "Mən getmirəm",
-            "Sən oxumursan"
-        ]
-    },
-
-    "Gün 3": {
-        "ders": "Məchul",
-        "sual": [
-            # Sözlərdən
-            "دانشجو sözünü Azərbaycan dilinə tərcümə et",
-            "قلم sözünü fars dilində yaz",
-            "خانه sözünü Azərbaycan dilinə tərcümə et",
-            # Qrammatikadan
-            "Məchulda 'kitab oxumaq' felini yazın",
-            "Məchulda 'məktəb tikmək' felini yazın"
-        ],
-        "cavab": [
-            "Tələbə",
-            "qalam",
-            "Ev",
-            "Kitab oxunur",
-            "Məktəb tikilir"
-        ]
-    },
-
-    "Gün 4": {
-        "ders": "Əmr",
-        "sual": [
-            # Sözlərdən
-            "کتاب sözünü Azərbaycan dilinə tərcümə et",
-            "قلم sözünün tələffüzü necədir?",
-            "خانه sözünü fars dilində yaz",
-            # Qrammatikadan
-            "Əmr şəklində 'getmək' felini yazın",
-            "Əmr şəklində 'oxumaq' felini yazın"
-        ],
-        "cavab": [
-            "Kitab",
-            "qalam",
-            "Ev",
-            "Get!",
-            "Oxu!"
-        ]
-    },
-
-    "Gün 5": {
-        "ders": "Qəsdi niyyət / Lazımi fellər",
-        "sual": [
-            # Sözlərdən
-            "دوست sözünü fars dilində yaz",
-            "مدرسه sözünün tələffüzü necədir?",
-            "درس sözünü fars dilində yaz",
-            # Qrammatikadan
-            "Gələcəkdə 'mən getmək' felini yazın",
-            "Gələcəkdə 'sən oxumaq' felini yazın"
-        ],
-        "cavab": [
-            "Dost",
             "madrese",
-            "Dars",
-            "Mən gedəcəyəm",
-            "Sən oxuyacaqsan"
+            "moalem",
+            "daneshju",
+            "Mən getmirəm",
+            "Ev təmizlənir"
         ]
     }
 }
