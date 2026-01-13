@@ -4,8 +4,8 @@ from datetime import datetime
 import pytz
 import threading
 import time
+import random
 
-# Fayllardan məlumatları import edirik
 from word import daily_words
 from gram import grammar_lessons
 from tests import daily_tests
@@ -50,60 +50,77 @@ def lesson_consent(call):
     else:
         bot.send_message(call.message.chat.id, "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
-# ---- FUNKSİYALAR: GÜNÜN SÖZLƏRİ, QRAMMATİKA, TEST ----
+# ---- FUNKSİYALAR ----
+sent_flags = {}  # Gün üzrə hansı göndərilib
+
 def send_daily_content():
     days = list(daily_words.keys())
     current_day_index = 0
-    sent_today = False
+    sent_flags.clear()
 
     while current_day_index < len(days):
         now = datetime.now(pytz.timezone("Asia/Baku"))
-        hour = now.hour
-        minute = now.minute
+        hour, minute = now.hour, now.minute
         day = days[current_day_index]
 
-        # Səhər 08:00 - sözlər
-        if hour == 23 and minute == 8 and not sent_today:
+        if day not in sent_flags:
+            sent_flags[day] = {"words": False, "grammar": False, "test": False}
+
+        # ---- SÖZLƏR ----
+        if hour == 23 and minute == 17 and not sent_flags[day]["words"]:
             words = daily_words[day]
             text = f"📖 {day} - Günün sözləri:\n"
             for w in words:
                 text += f"{w[0]} • {w[1]} • {w[2]}\n"
             bot.send_message(CHANNEL_USERNAME, text=text)
+            sent_flags[day]["words"] = True
 
-        # Günorta 13:00 - qrammatika
-        if hour == 23 and minute == 9 and not sent_today:
+        # ---- QRAMMATİKA ----
+        if hour == 23 and minute == 18 and not sent_flags[day]["grammar"]:
             lesson = grammar_lessons.get(day)
             if lesson:
                 text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
                 bot.send_message(CHANNEL_USERNAME, text=text)
+            sent_flags[day]["grammar"] = True
 
-        # Gecə 19:00 - test
-        if hour == 23 and minute == 10 and not sent_today:
+        # ---- TEST ----
+        if hour == 23 and minute == 19 and not sent_flags[day]["test"]:
             test = daily_tests.get(day)
             if test:
-                text = f"📝 {day} - Günün Testi:\n"
                 for idx, q in enumerate(test['sual'], 1):
-                    sual_text, variants, _ = q
-                    text += f"{idx}. {sual_text}\nA) {variants[0]}\nB) {variants[1]}\nC) {variants[2]}\n\n"
-                bot.send_message(CHANNEL_USERNAME, text=text)
+                    sual_text, variants, correct_index = q
+                    # Variantları qarışdır
+                    choices = variants.copy()
+                    random.shuffle(choices)
 
-        # Gecə 21:00 - cavablar
-        if hour == 23 and minute == 11 and not sent_today:
-            test = daily_tests.get(day)
-            if test:
-                text = f"✅ {day} - Test Cavabları:\n"
-                for idx, q in enumerate(test['sual'], 1):
-                    _, _, correct_index = q
-                    text += f"{idx}. {q[1][correct_index]}\n"
-                bot.send_message(CHANNEL_USERNAME, text=text)
-            sent_today = True  # Bu gün göndərildi
+                    kb = InlineKeyboardMarkup()
+                    for i, var in enumerate(choices):
+                        # Callback data: gün_sualidx_variantidx_düzsəhf
+                        is_correct = "1" if var == variants[correct_index] else "0"
+                        kb.add(InlineKeyboardButton(var, callback_data=f"{day}_q{idx}_{is_correct}"))
 
-        # Yeni gün başladıqda flag sıfırlansın və növbəti günə keçilsin
+                    bot.send_message(CHANNEL_USERNAME, f"{idx}. {sual_text}", reply_markup=kb)
+            sent_flags[day]["test"] = True
+
+        # ---- GÜN SONU 00:00 ----
         if hour == 0 and minute == 0:
-            sent_today = False
             current_day_index += 1
 
-        time.sleep(30)
+        time.sleep(20)
+
+# ---- CALLBACK HANDLER: INLINE BUTTON ----
+@bot.callback_query_handler(func=lambda call: True)
+def handle_quiz(call):
+    if "_q" in call.data:
+        parts = call.data.split("_q")
+        day = parts[0]
+        q_part = parts[1]
+        question_idx, is_correct = q_part.split("_")
+        is_correct = bool(int(is_correct))
+        if is_correct:
+            bot.answer_callback_query(call.id, "✅ Düzgün cavab!")
+        else:
+            bot.answer_callback_query(call.id, "❌ Səhf cavab!")
 
 # ---- THREAD ----
 threading.Thread(target=send_daily_content).start()
