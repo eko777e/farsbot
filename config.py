@@ -3,6 +3,6 @@ API_HASH = "916a9424dd1e58ab7955001ccc0172b3"
 BOT_TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
 
 ADMIN_IDS = [8493825254]
-CHANNEL_ID = -1003664932121
+CHANNEL_LINK = "@farsdersleri"  # məsələn: @fars_dersleri
 TIMEZONE = "Asia/Baku"
 CHANNEL_LINK = "https://t.me/farsdersleri"
