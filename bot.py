@@ -26,6 +26,12 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# ================= GÜNÜN KONTENTİNİN YADDA SAXLANMASI =================
+daily_data = {
+    "words": [],
+    "grammar": ""
+}
+
 # ================= START =================
 @app.on_message(filters.command("start"))
 async def start(_, m: Message):
@@ -109,27 +115,43 @@ async def new_member(_, event):
 # ================= GÜNÜN SÖZLƏRİ =================
 async def send_daily_words():
     words = sample(WORDS, 5)
+    daily_data["words"] = words  # yadda saxla
     text = "\n".join([f"{f} • {a}" for f, a in words])
-    await app.send_message(config.CHANNEL_LINK, text)
+    await app.send_message(config.CHANNEL_LINK, f"**Günün sözləri:**\n{text}")
 
 # ================= QRAMMATİKA =================
 async def send_grammar():
-    await app.send_message(config.CHANNEL_LINK, choice(GRAMMAR))
+    grammar = choice(GRAMMAR)
+    daily_data["grammar"] = grammar  # yadda saxla
+    await app.send_message(config.CHANNEL_LINK, f"**Gündəlik Qrammatika:**\n{grammar}")
 
 # ================= TEST =================
 async def send_test():
+    if not daily_data["words"] or not daily_data["grammar"]:
+        await app.send_message(config.CHANNEL_LINK, "⚠️ Bu günün sözləri və ya qrammatikası yoxdur.")
+        return
+
     t = choice(TESTS)
-    await app.send_message(config.CHANNEL_LINK, t["test"])
+    # Testi sözlər və qrammatika üzrə düzəldə bilərsən
+    test_text = "**Gün sonunun testi!**\n"
+    for i, q in enumerate(daily_data["words"] + [daily_data["grammar"]], 1):
+        test_text += f"Sual {i} • {q[0] if isinstance(q, tuple) else q}\n"
+    daily_data["current_test"] = test_text
+    await app.send_message(config.CHANNEL_LINK, test_text)
 
 async def send_answers():
-    t = choice(TESTS)
-    await app.send_message(config.CHANNEL_LINK, t["answers"])
+    if "current_test" not in daily_data:
+        await app.send_message(config.CHANNEL_LINK, "⚠️ Bu gün üçün test yoxdur.")
+        return
+    answers_text = "**Gün sonunun test cavabları**\n"
+    for i, q in enumerate(daily_data["words"] + [daily_data["grammar"]], 1):
+        answers_text += f"Cavab {i} • {q[1] if isinstance(q, tuple) else 'Qrammatika cavabı'}\n"
+    await app.send_message(config.CHANNEL_LINK, answers_text)
 
 # ================= ADMIN /gsoz =================
 @app.on_message(filters.command("gsoz") & filters.reply & filters.user(config.ADMIN_IDS))
 async def admin_word(_, m: Message):
     await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
-
 
 # ================= AI KOMANDA =================
 @app.on_message(filters.private & filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
