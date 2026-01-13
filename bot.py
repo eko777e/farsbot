@@ -3,11 +3,10 @@ from datetime import datetime
 import pytz
 import threading
 import time
-import random
 
-from word import daily_words          # Günlük sözlər: dict {gün: [(az, fars, izah), ...]}
-from gram import grammar_lessons      # Günlük qrammatika: dict {gün: {"ders":..., "izah":..., "nümunə":...}}
-from tests import daily_tests         # Günlük testlər: dict {gün: {"sual": [(sual, [variant1..], correct_index), ...]}}
+from word import daily_words          # Günlük sözlər
+from gram import grammar_lessons      # Günlük qrammatika
+from tests import daily_tests         # Günlük testlər
 
 TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
 CHANNEL_USERNAME = "@farsdersler"
@@ -40,7 +39,7 @@ def get_age(message, user_name):
         InlineKeyboardButton("Bəli", callback_data="yes"),
         InlineKeyboardButton("Xeyr", callback_data="no")
     )
-    bot.send_message(message.chat.id, "Dərslərə qoşulmaqa könüllü razısınızmı?", reply_markup=kb)
+    bot.send_message(message.chat.id, "Dərslərə qoşulmağa könüllü razısınızmı?", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["yes","no"])
 def lesson_consent(call):
@@ -52,16 +51,16 @@ def lesson_consent(call):
         bot.send_message(call.message.chat.id, "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
 
-# ------------------- GÜNDƏLİK GÖNDƏRİM -------------------
+# ------------------- GÜNDƏLİK TESTLƏR -------------------
 def send_daily_test_poll(day):
-    test = daily_tests.get(day)
-    if not test:
+    test_list = daily_tests.get(day)
+    if not test_list:
         return
 
+    # Suallar üçün vaxtlar
     question_times = ["23:54", "10:00", "12:00", "15:00", "19:00"]
 
-    for idx, q in enumerate(test['sual'][:5]):
-        sual_text, variants, correct_index = q
+    for idx, (sual_text, variants, correct_index) in enumerate(test_list[:5]):
         hour, minute = map(int, question_times[idx].split(":"))
 
         # Vaxt gələnə qədər gözlə
@@ -72,13 +71,15 @@ def send_daily_test_poll(day):
                     chat_id=CHANNEL_USERNAME,
                     question=f"{idx+1}. {sual_text}",
                     options=variants,
-                    is_anonymous=False,       # False olarsa, istifadəçi adı görünür
+                    is_anonymous=False,
                     type="quiz",
                     correct_option_id=correct_index
                 )
                 break
             time.sleep(5)
 
+
+# ------------------- GÜNDƏLİK MƏZMUN GÖNDƏRİM -------------------
 def send_daily_content():
     days = list(daily_words.keys())
     current_day_index = 0
