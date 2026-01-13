@@ -26,11 +26,9 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# ================= GÜNÜN KONTENTİNİN YADDA SAXLANMASI =================
 daily_data = {
     "words": [],
-    "grammar": "",
-    "current_test": ""
+    "grammar": ""
 }
 
 # ================= START =================
@@ -40,128 +38,103 @@ async def start(_, m: Message):
         [InlineKeyboardButton("📜 Anket", callback_data="anket")]
     ])
     await m.reply(
-        "Salam zəhmət olmasa `Anket` buttonuna toxunaraq məlumatları doldurun ✍️",
+        "Salam 👋\nZəhmət olmasa **Anket** buttonuna toxunaraq məlumatları doldurun ✍️",
         reply_markup=kb
     )
 
 # ================= ANKET =================
-@app.on_callback_query(filters.regex("anket"))
+@app.on_callback_query(filters.regex("^anket$"))
 async def anket(_, q):
-    await q.message.delete()
     user_state[q.from_user.id] = "name"
-    await q.message.reply("**Adınız Nədir?**")
+    await q.message.edit("**Adınız nədir?**")
 
-@app.on_message(filters.private & filters.text)
+@app.on_message(filters.private & filters.text & ~filters.command(["start", "sual"]))
 async def anket_steps(_, m: Message):
     uid = m.from_user.id
     if uid not in user_state:
-        return  # PM-də digər mesajlara cavab vermir
+        return
 
-    if user_state.get(uid) == "name":
+    if user_state[uid] == "name":
         database.cur.execute(
-            "INSERT OR IGNORE INTO users (user_id,name) VALUES (?,?)",
+            "INSERT OR IGNORE INTO users (user_id, name) VALUES (?,?)",
             (uid, m.text)
         )
         database.db.commit()
         user_state[uid] = "age"
         await m.reply("**Yaşınız neçədir?**")
 
-    elif user_state.get(uid) == "age":
+    elif user_state[uid] == "age":
         if not m.text.isdigit():
-            return await m.reply("Yaşı rəqəmlə yazın")
+            return await m.reply("Yaşı yalnız rəqəmlə yazın.")
         database.cur.execute(
             "UPDATE users SET age=? WHERE user_id=?",
             (m.text, uid)
         )
         database.db.commit()
         user_state[uid] = "accept"
-        await m.reply("**Dərslərə qoşulmaqa könüllü razısınızmı?\nBəli / Xeyr**")
+        await m.reply("**Dərslərə qatılmağa razısınız? (Bəli / Xeyr)**")
 
-    elif user_state.get(uid) == "accept":
+    elif user_state[uid] == "accept":
         if m.text.lower() not in ["bəli", "xeyr"]:
-            return await m.reply("Yalnız Bəli və ya Xeyr")
+            return await m.reply("Yalnız **Bəli** və ya **Xeyr** yazın.")
         database.cur.execute(
             "UPDATE users SET accepted=? WHERE user_id=?",
-            (m.text, uid)
+            (m.text.lower(), uid)
         )
         database.db.commit()
         del user_state[uid]
 
         if m.text.lower() == "bəli":
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📚 Dərs Kanalı", url="https://t.me/farsdersleri")]
-            ])
             await m.reply(
-                "**Zəhmət olmasa** `Dərs Kanalı` **buttonuna toxunaraq kanala qatılın**",
-                reply_markup=kb
+                "🎉 Əla!\nDərslər kanalında görüşərik:\n"
+                "👉 https://t.me/farsdersleri"
             )
         else:
-            await m.reply(
-                "**Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm**"
-            )
-
-# ================= DƏRS KANALINA QATILMA =================
-@app.on_chat_member_updated(filters.chat(config.CHANNEL_LINK))
-async def new_member(_, event):
-    if event.new_chat_member.status == enums.ChatMemberStatus.MEMBER:
-        user = event.new_chat_member.user
-        await app.send_message(
-            config.CHANNEL_LINK,
-            f"🗣️ {user.mention(style='md')} **Dərslərimizə qatıldı!!**\n"
-            "**Hər kəsə dərslərində uğurlar** 🥳"
-        )
+            await m.reply("Razı olmadığınız üçün proses dayandırıldı.")
 
 # ================= GÜNÜN SÖZLƏRİ =================
 async def send_daily_words():
     words = sample(WORDS, 5)
     daily_data["words"] = words
-    text = "\n".join([f"{f} • {a}" for f, a in words])
-    await app.send_message(config.CHANNEL_LINK, f"**Günün sözləri:**\n{text}")
+    text = "\n".join([f"🔹 {f} — {a}" for f, a in words])
+    await app.send_message(config.CHANNEL_ID, f"📘 **Günün sözləri**\n\n{text}")
 
 # ================= QRAMMATİKA =================
 async def send_grammar():
     grammar = choice(GRAMMAR)
     daily_data["grammar"] = grammar
-    await app.send_message(config.CHANNEL_LINK, f"**Gündəlik Qrammatika:**\n{grammar}")
+    await app.send_message(config.CHANNEL_ID, f"📗 **Günün qrammatikası**\n\n{grammar}")
 
 # ================= TEST =================
 async def send_test():
-    if not daily_data["words"] or not daily_data["grammar"]:
-        await app.send_message(config.CHANNEL_LINK, "⚠️ Bu günün sözləri və ya qrammatikası yoxdur.")
-        return
+    text = "📝 **Günün testi**\n\n"
+    i = 1
+    for f, _ in daily_data["words"]:
+        text += f"{i}) `{f}` nə deməkdir?\n"
+        i += 1
+    text += f"\n{i}) Bu günkü qrammatikanı izah edin."
+    await app.send_message(config.CHANNEL_ID, text)
 
-    test_text = "**Gün sonunun testi!**\n"
-    for i, q in enumerate(daily_data["words"] + [daily_data["grammar"]], 1):
-        test_text += f"Sual {i} • {q[0] if isinstance(q, tuple) else q}\n"
-    daily_data["current_test"] = test_text
-    await app.send_message(config.CHANNEL_LINK, test_text)
-
+# ================= CAVABLAR =================
 async def send_answers():
-    if not daily_data.get("current_test"):
-        await app.send_message(config.CHANNEL_LINK, "⚠️ Bu gün üçün test yoxdur.")
-        return
-    answers_text = "**Gün sonunun test cavabları**\n"
-    for i, q in enumerate(daily_data["words"] + [daily_data["grammar"]], 1):
-        answers_text += f"Cavab {i} • {q[1] if isinstance(q, tuple) else 'Qrammatika cavabı'}\n"
-    await app.send_message(config.CHANNEL_LINK, answers_text)
+    text = "✅ **Test cavabları**\n\n"
+    i = 1
+    for _, a in daily_data["words"]:
+        text += f"{i}) {a}\n"
+        i += 1
+    text += f"\n{i}) Qrammatika izah mətni."
+    await app.send_message(config.CHANNEL_ID, text)
 
-# ================= ADMIN /gsoz =================
-@app.on_message(filters.command("gsoz") & filters.reply & filters.user(config.ADMIN_IDS))
-async def admin_word(_, m: Message):
-    await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
-
-# ================= AI KOMANDA (/sual) =================
-@app.on_message(filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
+# ================= AI /sual =================
+@app.on_message(filters.command("sual"))
 async def ai_command(_, m: Message):
-    user_input = m.matches[0].group(1) if m.matches else ""
-    user_input = user_input.strip()
-    if not user_input:
+    if len(m.command) < 2:
         return await m.reply(
-            "✍️ Zəhmət olmasa /sual əmri ilə sualınızı yazın.\n"
-            "Məsələn: `/sual fars dili nə üçün vacibdir?`"
+            "✍️ Sualı belə yazın:\n"
+            "`/sual fars dili nə üçün vacibdir?`"
         )
-    # /sual -> /gpt
-    user_input = user_input.replace("/sual", "/gpt", 1)
+
+    user_input = " ".join(m.command[1:])
 
     try:
         resp = requests.post(
@@ -172,15 +145,16 @@ async def ai_command(_, m: Message):
                 "chatId": str(m.chat.id),
                 "generatorType": "CodeGenerator"
             },
-            timeout=10
+            timeout=15
         )
+
         if resp.status_code == 200:
-            data = resp.json()
-            reply_text = data.get("response", "⚠️ Cavab tapılmadı.")
+            reply_text = resp.json().get("response", "⚠️ Cavab tapılmadı.")
         else:
             reply_text = f"⚠️ Server xətası: {resp.status_code}"
+
     except Exception as e:
-        reply_text = f"❌ Sorğu zamanı xəta baş verdi:\n{e}"
+        reply_text = f"❌ Xəta:\n`{e}`"
 
     await m.reply(reply_text)
 
