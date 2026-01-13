@@ -1,8 +1,9 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from random import sample, choice
 import pytz
+import requests, json
 
 import config
 import database
@@ -18,6 +19,12 @@ app = Client(
 )
 
 user_state = {}
+
+API_URL = "https://aicodegenerator.ifscswiftcodeapp.in/api.php"
+HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0"
+}
 
 # ================= START =================
 @app.on_message(filters.command("start"))
@@ -88,6 +95,17 @@ async def anket_steps(_, m: Message):
                 "**Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm**"
             )
 
+# ================= DƏRS KANALINA QATILMA =================
+@app.on_chat_member_updated(filters.chat(config.CHANNEL_LINK))
+async def new_member(_, event):
+    if event.new_chat_member.status == enums.ChatMemberStatus.MEMBER:
+        user = event.new_chat_member.user
+        await app.send_message(
+            config.CHANNEL_LINK,
+            f"🗣️ {user.mention(style='md')} **Dərslərimizə qatıldı!!**\n"
+            "**Hər kəsə dərslərində uğurlar** 🥳"
+        )
+
 # ================= GÜNÜN SÖZLƏRİ =================
 async def send_daily_words():
     words = sample(WORDS, 5)
@@ -119,12 +137,42 @@ async def help_answer(m: Message):
         "Sözlər, qrammatika və testlərlə bağlı sual verə bilərsiniz."
     )
 
+# ================= AI KOMANDA =================
+@app.on_message(filters.private & filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
+async def ai_command(_, m: Message):
+    user_input = m.matches[0].group(1) if m.matches else ""
+    user_input = user_input.strip()
+    if not user_input:
+        return await m.reply(
+            "✍️ Zəhmət olmasa /sual əmri ilə sualınızı yazın.\n"
+            "Məsələn: `/sual Fars dili nə üçün önəmlidir?`"
+        )
+    try:
+        resp = requests.post(
+            API_URL,
+            headers=HEADERS,
+            json={
+                "message": [{"type": "text", "text": user_input}],
+                "chatId": str(m.chat.id),
+                "generatorType": "CodeGenerator"
+            },
+            timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            reply_text = data.get("response", "⚠️ Cavab tapılmadı.")
+        else:
+            reply_text = f"⚠️ Server xətası: {resp.status_code}"
+    except Exception as e:
+        reply_text = f"❌ Sorğu zamanı xəta baş verdi:\n{e}"
+    await m.reply(reply_text)
+
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=20, minute=29)  # Günün sözləri
-scheduler.add_job(send_grammar, "cron", hour=20, minute=30)                  # Qrammatika
-scheduler.add_job(send_test, "cron", hour=20, minute=31)                     # Test
-scheduler.add_job(send_answers, "cron", hour=20, minute=32)                  # Test cavabları
+scheduler.add_job(send_daily_words, "cron", hour=21, minute=04)  # Günün sözləri
+scheduler.add_job(send_grammar, "cron", hour=21, minute=05)       # Qrammatika
+scheduler.add_job(send_test, "cron", hour=21, minute=06)          # Test
+scheduler.add_job(send_answers, "cron", hour=21, minute=07)       # Test cavabları
 scheduler.start()
 
 app.run()
