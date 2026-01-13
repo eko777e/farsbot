@@ -1,126 +1,103 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import pytz
-import random
+import threading
+import time
 
+# Fayllardan məlumatları import edirik
 from word import daily_words
 from gram import grammar_lessons
-from tests import daily_tests  # Testlərdə default cavablar da var
+from tests import daily_tests
 
-TOKEN = "BOT_TOKENİNİZİ_BURAYA_QOYUN"
-CHANNEL_ID = "@kanal_username"
-ADMIN_ID = 123456789
-
+TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
+CHANNEL_USERNAME = "@farsdersler"  # Kanala mesaj göndərmək üçün username
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
-user_data = {}
 
-# Start və Anket
-@bot.message_handler(commands=["start"])
+# ---- START / ANKET ----
+@bot.message_handler(commands=['start'])
 def start(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📜 Anket", callback_data="anket"))
-    bot.send_message(message.chat.id,
-                     "Salam zəhmət olmasa Anket buttonuna toxunaraq məlumatları doldurun ✍️",
-                     reply_markup=markup)
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("📜 Anket", callback_data="anket"))
+    bot.send_message(message.chat.id, "Salam zəhmət olmasa Anket buttonuna toxunaraq məlumatları doldurun ✍️", reply_markup=kb)
 
-@bot.callback_query_handler(func=lambda c: c.data == "anket")
+@bot.callback_query_handler(func=lambda call: call.data=="anket")
 def anket(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
-    msg = bot.send_message(call.message.chat.id, "Adınız Nədir?")
+    msg = bot.send_message(call.message.chat.id, "Adınız nədir?")
     bot.register_next_step_handler(msg, get_name)
 
 def get_name(message):
-    user_data[message.from_user.id] = {"ad": message.text}
+    user_name = message.text
     msg = bot.send_message(message.chat.id, "Yaşınız neçədir?")
-    bot.register_next_step_handler(msg, get_age)
+    bot.register_next_step_handler(msg, get_age, user_name)
 
-def get_age(message):
-    user_data[message.from_user.id]["yas"] = message.text
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("Bəli", callback_data="vol_yes"),
-        InlineKeyboardButton("Xeyr", callback_data="vol_no")
+def get_age(message, user_name):
+    user_age = message.text
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("Bəli", callback_data="yes"),
+        InlineKeyboardButton("Xeyr", callback_data="no")
     )
-    bot.send_message(message.chat.id, "Dərslərə qoşulmaqa könüllü razısınızmı?", reply_markup=markup)
+    bot.send_message(message.chat.id, "Dərslərə qoşulmaqa könüllü razısınızmı?", reply_markup=kb)
 
-@bot.callback_query_handler(func=lambda c: c.data in ["vol_yes", "vol_no"])
-def volunteer(call):
-    if call.data == "vol_yes":
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("📚 Dərs Kanalı", url="https://t.me/kanal_linkiniz"))
-        bot.send_message(call.message.chat.id,
-                         "Zəhmət olmasa Dərs Kanalı buttonuna toxunaraq kanala qatılın",
-                         reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data in ["yes","no"])
+def lesson_consent(call):
+    if call.data == "yes":
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("📚 Dərs Kanalı", url=f"https://t.me/{CHANNEL_USERNAME.strip('@')}"))
+        bot.send_message(call.message.chat.id, "Zəhmət olmasa Dərs Kanalı buttonuna toxunaraq kanala qatılın", reply_markup=kb)
     else:
-        bot.send_message(call.message.chat.id,
-                         "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
+        bot.send_message(call.message.chat.id, "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
-# Admin manual söz göndərmə
-@bot.message_handler(commands=["gsoz"])
-def admin_add_word(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    if message.reply_to_message:
-        bot.send_message(CHANNEL_ID, message.reply_to_message.text)
+# ---- FUNKSİYALAR: GÜNÜN SÖZLƏRİ, QRAMMATİKA, TEST ----
+def send_daily_content():
+    posted_days = set()  # Hansı günlər göndərilib
+    while True:
+        now = datetime.now(pytz.timezone("Asia/Baku"))
+        hour = now.hour
+        minute = now.minute
 
-# Günlük ardıcıllıq
-current_day_index = 0
-days_list = list(daily_words.keys())
-tz = pytz.timezone("Asia/Baku")
+        for day in daily_words.keys():
+            if day not in posted_days:
+                # Səhər 08:00 - sözlər
+                if hour == 22 and minute == 39:
+                    words = daily_words[day]
+                    text = f"📖 {day} - Günün sözləri:\n"
+                    for w in words:
+                        text += f"{w['fars']} • {w['taleffuz']} • {w['aze']}\n"
+                    bot.send_message(CHANNEL_USERNAME, text=text)
 
-scheduler = BackgroundScheduler(timezone=tz)
+                # Günorta 13:00 - qrammatika
+                if hour == 22 and minute == 40:
+                    lesson = grammar_lessons.get(day)
+                    if lesson:
+                        text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
+                        bot.send_message(CHANNEL_USERNAME, text=text)
 
-# 08:00 Günün sözləri
-def send_daily_words():
-    global current_day_index
-    today_day = days_list[current_day_index]
-    msg = ""
-    for w in daily_words[today_day]:
-        msg += f"{w[0]} • {w[1]} • {w[2]}\n"
-    bot.send_message(CHANNEL_ID, msg)
+                # Gecə 19:00 - test
+                if hour == 22 and minute == 41:
+                    test = daily_tests.get(day)
+                    if test:
+                        text = f"📝 {day} - Günün Testi:\n"
+                        for idx, q in enumerate(test['sual'],1):
+                            text += f"{idx}. {q}\n"
+                        bot.send_message(CHANNEL_USERNAME, text=text)
 
-# 13:00 Qrammatika
-def send_daily_grammar():
-    bot.send_message(CHANNEL_ID, "Gündəlik Qrammatika:\n\n" + "\n".join(grammar_lessons))
+                # Gecə 21:00 - cavablar
+                if hour == 22 and minute == 42:
+                    test = daily_tests.get(day)
+                    if test:
+                        text = f"✅ {day} - Test Cavabları:\n"
+                        for idx, a in enumerate(test['cavab'],1):
+                            text += f"{idx}. {a}\n"
+                        bot.send_message(CHANNEL_USERNAME, text=text)
+                    posted_days.add(day)
 
-# 19:00 Günün testi (3 söz + 2 qrammatika)
-def send_daily_test():
-    global current_day_index
-    today_day = days_list[current_day_index]
-    words = daily_words[today_day]
+        time.sleep(20)  # 20 saniyə gecikmə
 
-    # 3 sual sözlərdən (random)
-    word_questions = random.sample(words, min(3, len(words)))
-    word_sual = [f"Sual • {w[2]} sözünü fars dilində yazın?" for w in word_questions]
-    word_cavab = [f"Cavab • {w[0]}" for w in word_questions]
+# ---- THREAD ----
+threading.Thread(target=send_daily_content).start()
 
-    # 2 sual qrammatikadan (random)
-    gram_questions = random.sample(grammar_lessons, 2)
-    gram_sual = [f"Sual • {q} haqqında sual" for q in gram_questions]
-    gram_cavab = [f"Cavab • Nümunə / izah: {q}" for q in gram_questions]
-
-    # Bir mesajda suallar
-    test_msg = "\n".join(word_sual + gram_sual)
-    bot.send_message(CHANNEL_ID, "Günün testi:\n\n" + test_msg)
-
-    # Cavablar 21:00
-    def send_answers():
-        ans_msg = "\n".join(word_cavab + gram_cavab)
-        bot.send_message(CHANNEL_ID, "Günün test cavabları:\n\n" + ans_msg)
-        # Növbəti günə keç
-        global current_day_index
-        current_day_index += 1
-        if current_day_index >= len(days_list):
-            current_day_index = 0
-
-    scheduler.add_job(send_answers, 'cron', hour=21, minute=0)
-
-# Scheduler əlavə et
-scheduler.add_job(send_daily_words, 'cron', hour=8, minute=0)
-scheduler.add_job(send_daily_grammar, 'cron', hour=13, minute=0)
-scheduler.add_job(send_daily_test, 'cron', hour=19, minute=0)
-
-scheduler.start()
+# ---- BOT POLLING ----
 bot.infinity_polling()
