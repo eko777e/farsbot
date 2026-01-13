@@ -11,7 +11,7 @@ from gram import grammar_lessons
 from tests import daily_tests
 
 TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
-CHANNEL_USERNAME = "@farsdersler"  # Kanala mesaj göndərmək üçün username
+CHANNEL_USERNAME = "@farsdersler"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # ---- START / ANKET ----
@@ -52,49 +52,58 @@ def lesson_consent(call):
 
 # ---- FUNKSİYALAR: GÜNÜN SÖZLƏRİ, QRAMMATİKA, TEST ----
 def send_daily_content():
-    posted_days = set()  # Hansı günlər göndərilib
-    while True:
+    days = list(daily_words.keys())
+    current_day_index = 0
+    sent_today = False
+
+    while current_day_index < len(days):
         now = datetime.now(pytz.timezone("Asia/Baku"))
         hour = now.hour
         minute = now.minute
+        day = days[current_day_index]
 
-        for day in daily_words.keys():
-            if day not in posted_days:
-                # Səhər 08:00 - sözlər
-                if hour == 22 and minute == 45:
-                    words = daily_words[day]
-                    text = f"📖 {day} - Günün sözləri:\n"
-                    for w in words:
-                        text += f"{w[0]} • {w[1]} • {w[2]}\n"  # tuple üçün dəyişiklik
-                    bot.send_message(CHANNEL_USERNAME, text=text)
+        # Səhər 08:00 - sözlər
+        if hour == 23 and minute == 0 and not sent_today:
+            words = daily_words[day]
+            text = f"📖 {day} - Günün sözləri:\n"
+            for w in words:
+                text += f"{w[0]} • {w[1]} • {w[2]}\n"
+            bot.send_message(CHANNEL_USERNAME, text=text)
 
-                # Günorta 13:00 - qrammatika
-                if hour == 22 and minute == 46:
-                    lesson = grammar_lessons.get(day)
-                    if lesson:
-                        text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
-                        bot.send_message(CHANNEL_USERNAME, text=text)
+        # Günorta 13:00 - qrammatika
+        if hour == 23 and minute == 1 and not sent_today:
+            lesson = grammar_lessons.get(day)
+            if lesson:
+                text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
+                bot.send_message(CHANNEL_USERNAME, text=text)
 
-                # Gecə 19:00 - test
-                if hour == 22 and minute == 47:
-                    test = daily_tests.get(day)
-                    if test:
-                        text = f"📝 {day} - Günün Testi:\n"
-                        for idx, q in enumerate(test['sual'],1):
-                            text += f"{idx}. {q}\n"
-                        bot.send_message(CHANNEL_USERNAME, text=text)
+        # Gecə 19:00 - test
+        if hour == 23 and minute == 2 and not sent_today:
+            test = daily_tests.get(day)
+            if test:
+                text = f"📝 {day} - Günün Testi:\n"
+                for idx, q in enumerate(test['sual'], 1):
+                    sual_text, variants, _ = q
+                    text += f"{idx}. {sual_text}\nA) {variants[0]}\nB) {variants[1]}\nC) {variants[2]}\n\n"
+                bot.send_message(CHANNEL_USERNAME, text=text)
 
-                # Gecə 21:00 - cavablar
-                if hour == 22 and minute == 48:
-                    test = daily_tests.get(day)
-                    if test:
-                        text = f"✅ {day} - Test Cavabları:\n"
-                        for idx, a in enumerate(test['cavab'],1):
-                            text += f"{idx}. {a}\n"
-                        bot.send_message(CHANNEL_USERNAME, text=text)
-                    posted_days.add(day)
+        # Gecə 21:00 - cavablar
+        if hour == 23 and minute == 3 and not sent_today:
+            test = daily_tests.get(day)
+            if test:
+                text = f"✅ {day} - Test Cavabları:\n"
+                for idx, q in enumerate(test['sual'], 1):
+                    _, _, correct_index = q
+                    text += f"{idx}. {q[1][correct_index]}\n"
+                bot.send_message(CHANNEL_USERNAME, text=text)
+            sent_today = True  # Bu gün göndərildi
 
-        time.sleep(20)  # 20 saniyə gecikmə
+        # Yeni gün başladıqda flag sıfırlansın və növbəti günə keçilsin
+        if hour == 0 and minute == 0:
+            sent_today = False
+            current_day_index += 1
+
+        time.sleep(30)
 
 # ---- THREAD ----
 threading.Thread(target=send_daily_content).start()
