@@ -29,7 +29,8 @@ HEADERS = {
 # ================= GÜNÜN KONTENTİNİN YADDA SAXLANMASI =================
 daily_data = {
     "words": [],
-    "grammar": ""
+    "grammar": "",
+    "current_test": ""
 }
 
 # ================= START =================
@@ -53,10 +54,8 @@ async def anket(_, q):
 @app.on_message(filters.private & filters.text)
 async def anket_steps(_, m: Message):
     uid = m.from_user.id
-
     if uid not in user_state:
-        # PM-də digər yazılara cavab vermir
-        return
+        return  # PM-də digər mesajlara cavab vermir
 
     if user_state.get(uid) == "name":
         database.cur.execute(
@@ -115,14 +114,14 @@ async def new_member(_, event):
 # ================= GÜNÜN SÖZLƏRİ =================
 async def send_daily_words():
     words = sample(WORDS, 5)
-    daily_data["words"] = words  # yadda saxla
+    daily_data["words"] = words
     text = "\n".join([f"{f} • {a}" for f, a in words])
     await app.send_message(config.CHANNEL_LINK, f"**Günün sözləri:**\n{text}")
 
 # ================= QRAMMATİKA =================
 async def send_grammar():
     grammar = choice(GRAMMAR)
-    daily_data["grammar"] = grammar  # yadda saxla
+    daily_data["grammar"] = grammar
     await app.send_message(config.CHANNEL_LINK, f"**Gündəlik Qrammatika:**\n{grammar}")
 
 # ================= TEST =================
@@ -138,7 +137,7 @@ async def send_test():
     await app.send_message(config.CHANNEL_LINK, test_text)
 
 async def send_answers():
-    if "current_test" not in daily_data:
+    if not daily_data.get("current_test"):
         await app.send_message(config.CHANNEL_LINK, "⚠️ Bu gün üçün test yoxdur.")
         return
     answers_text = "**Gün sonunun test cavabları**\n"
@@ -151,12 +150,46 @@ async def send_answers():
 async def admin_word(_, m: Message):
     await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
 
+# ================= AI KOMANDA (/sual) =================
+@app.on_message(filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
+async def ai_command(_, m: Message):
+    user_input = m.matches[0].group(1) if m.matches else ""
+    user_input = user_input.strip()
+    if not user_input:
+        return await m.reply(
+            "✍️ Zəhmət olmasa /sual əmri ilə sualınızı yazın.\n"
+            "Məsələn: `/sual fars dili nə üçün vacibdir?`"
+        )
+    # /sual -> /gpt
+    user_input = user_input.replace("/sual", "/gpt", 1)
+
+    try:
+        resp = requests.post(
+            API_URL,
+            headers=HEADERS,
+            json={
+                "message": [{"type": "text", "text": user_input}],
+                "chatId": str(m.chat.id),
+                "generatorType": "CodeGenerator"
+            },
+            timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            reply_text = data.get("response", "⚠️ Cavab tapılmadı.")
+        else:
+            reply_text = f"⚠️ Server xətası: {resp.status_code}"
+    except Exception as e:
+        reply_text = f"❌ Sorğu zamanı xəta baş verdi:\n{e}"
+
+    await m.reply(reply_text)
+
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=21, minute=21)
-scheduler.add_job(send_grammar, "cron", hour=21, minute=22)
-scheduler.add_job(send_test, "cron", hour=21, minute=23)
-scheduler.add_job(send_answers, "cron", hour=21, minute=24)
+scheduler.add_job(send_daily_words, "cron", hour=21, minute=4)
+scheduler.add_job(send_grammar, "cron", hour=21, minute=5)
+scheduler.add_job(send_test, "cron", hour=21, minute=6)
+scheduler.add_job(send_answers, "cron", hour=21, minute=7)
 scheduler.start()
 
 app.run()
