@@ -130,12 +130,6 @@ async def send_answers():
 async def admin_word(_, m: Message):
     await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
 
-# ================= PM CAVAB =================
-async def help_answer(m: Message):
-    await m.reply(
-        "📘 Bu bot fars dili üçündür.\n"
-        "Sözlər, qrammatika və testlərlə bağlı sual verə bilərsiniz."
-    )
 
 # ================= AI KOMANDA =================
 @app.on_message(filters.private & filters.regex(r"^[!/.]sual(?:\s+(.+))?$"))
