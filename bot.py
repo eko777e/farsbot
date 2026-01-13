@@ -92,25 +92,25 @@ async def anket_steps(_, m: Message):
 async def send_daily_words():
     words = sample(WORDS, 5)
     text = "\n".join([f"{f} • {a}" for f, a in words])
-    await app.send_message(config.CHANNEL_ID, text)
+    await app.send_message(config.CHANNEL_LINK, text)
 
 # ================= QRAMMATİKA =================
 async def send_grammar():
-    await app.send_message(config.CHANNEL_ID, choice(GRAMMAR))
+    await app.send_message(config.CHANNEL_LINK, choice(GRAMMAR))
 
 # ================= TEST =================
 async def send_test():
     t = choice(TESTS)
-    await app.send_message(config.CHANNEL_ID, t["test"])
+    await app.send_message(config.CHANNEL_LINK, t["test"])
 
 async def send_answers():
     t = choice(TESTS)
-    await app.send_message(config.CHANNEL_ID, t["answers"])
+    await app.send_message(config.CHANNEL_LINK, t["answers"])
 
 # ================= ADMIN /gsoz =================
 @app.on_message(filters.command("gsoz") & filters.reply & filters.user(config.ADMIN_IDS))
 async def admin_word(_, m: Message):
-    await app.send_message(config.CHANNEL_ID, m.reply_to_message.text)
+    await app.send_message(config.CHANNEL_LINK, m.reply_to_message.text)
 
 # ================= PM CAVAB =================
 async def help_answer(m: Message):
@@ -121,10 +121,10 @@ async def help_answer(m: Message):
 
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=20, minute=10)
-scheduler.add_job(send_grammar, "cron", hour=13)
-scheduler.add_job(send_test, "cron", hour=19)
-scheduler.add_job(send_answers, "cron", hour=21)
+scheduler.add_job(send_daily_words, "cron", hour=20, minute=19)  # Günün sözləri
+scheduler.add_job(send_grammar, "cron", hour=13, minute=20)                  # Qrammatika
+scheduler.add_job(send_test, "cron", hour=19, minute=21)                     # Test
+scheduler.add_job(send_answers, "cron", hour=21, minute=22)                  # Test cavabları
 scheduler.start()
 
 app.run()
