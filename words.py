@@ -377,5 +377,5 @@ WORDS = [
 ("لوبیا سبز", "Yaşıl lobya"),
 ("نخود خشک", "Quru noxud"),
 ("عدس خشک", "Quru ləçə"),
-("جو پرک", "Arpa yarması),
+("جو پرک", "Arpa yarması)
  ]
