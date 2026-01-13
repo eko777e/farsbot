@@ -6,9 +6,9 @@ import threading
 import time
 import random
 
-from word import daily_words
-from gram import grammar_lessons
-from tests import daily_tests
+from word import daily_words          # Günlük sözlər: dict {gün: [(az, fars, izah), ...]}
+from gram import grammar_lessons      # Günlük qrammatika: dict {gün: {"ders":..., "izah":..., "nümunə":...}}
+from tests import daily_tests         # Günlük testlər: dict {gün: {"sual": [(sual, [variant1..], correct_index), ...]}}
 
 TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
 CHANNEL_USERNAME = "@farsdersler"
@@ -59,7 +59,7 @@ def send_daily_test(day):
     if not test:
         return
 
-    question_times = ["23:41", "10:00", "12:00", "15:00", "19:00"]
+    question_times = ["23:50", "10:00", "12:00", "15:00", "19:00"]
 
     for idx, q in enumerate(test['sual'][:5]):
         sual_text, variants, correct_index = q
@@ -93,7 +93,7 @@ def send_daily_content():
             sent_flags[day] = {"words": False, "grammar": False, "test": False}
 
         # ---- SÖZLƏR ----
-        if not sent_flags[day]["words"] and hour == 23 and minute == 39:
+        if not sent_flags[day]["words"] and hour == 23 and minute == 48:
             words = daily_words[day]
             text = f"📖 {day} - Günün sözləri:\n"
             for w in words:
@@ -102,7 +102,7 @@ def send_daily_content():
             sent_flags[day]["words"] = True
 
         # ---- QRAMMATİKA ----
-        if not sent_flags[day]["grammar"] and hour == 23 and minute == 40:
+        if not sent_flags[day]["grammar"] and hour == 23 and minute == 49:
             lesson = grammar_lessons.get(day)
             if lesson:
                 text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
@@ -124,6 +124,7 @@ def send_daily_content():
 @bot.callback_query_handler(func=lambda call: "_q" in call.data)
 def handle_quiz(call):
     user_id = call.from_user.id
+    user_mention = call.from_user.mention
     if user_id not in user_answers:
         user_answers[user_id] = set()
 
@@ -133,17 +134,21 @@ def handle_quiz(call):
     is_correct = bool(int(parts[2]))
     question_id = f"{day}_{q_idx}"
 
+    # Yalnız bir dəfə cavab ver
     if question_id in user_answers[user_id]:
         bot.answer_callback_query(call.id, "Siz artıq cavab vermisiniz!", show_alert=True)
         return
 
     user_answers[user_id].add(question_id)
 
-    # Hər kəs üçün mesaj edit etmək əvəzinə, sadəcə cavabı alert ilə göstəririk
+    # Cavabı qrupda göstər
     if is_correct:
-        bot.answer_callback_query(call.id, "✅ Düzgün cavab! Zəhmət olmasa digər sualı gözləyin...")
+        bot.send_message(call.message.chat.id, f"✅ {user_mention} Doğru cavabı seçdi!!")
     else:
-        bot.answer_callback_query(call.id, "❌ Səhf cavab! Zəhmət olmasa digər sualı gözləyin...")
+        bot.send_message(call.message.chat.id, f"❌ {user_mention} Yalnış cavabı seçdi!!")
+
+    # Buttonları deaktiv et
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
 # ------------------- THREAD -------------------
 threading.Thread(target=send_daily_content).start()
