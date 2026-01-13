@@ -121,7 +121,7 @@ async def help_answer(m: Message):
 
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=8)
+scheduler.add_job(send_daily_words, "cron", hour=20, minute=10)
 scheduler.add_job(send_grammar, "cron", hour=13)
 scheduler.add_job(send_test, "cron", hour=19)
 scheduler.add_job(send_answers, "cron", hour=21)
