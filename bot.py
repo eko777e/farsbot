@@ -61,22 +61,22 @@ def send_daily_content():
         for day in daily_words.keys():
             if day not in posted_days:
                 # Səhər 08:00 - sözlər
-                if hour == 22 and minute == 39:
+                if hour == 22 and minute == 45:
                     words = daily_words[day]
                     text = f"📖 {day} - Günün sözləri:\n"
                     for w in words:
-                        text += f"{w['fars']} • {w['taleffuz']} • {w['aze']}\n"
+                        text += f"{w[0]} • {w[1]} • {w[2]}\n"  # tuple üçün dəyişiklik
                     bot.send_message(CHANNEL_USERNAME, text=text)
 
                 # Günorta 13:00 - qrammatika
-                if hour == 22 and minute == 40:
+                if hour == 22 and minute == 46:
                     lesson = grammar_lessons.get(day)
                     if lesson:
                         text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
                         bot.send_message(CHANNEL_USERNAME, text=text)
 
                 # Gecə 19:00 - test
-                if hour == 22 and minute == 41:
+                if hour == 22 and minute == 47:
                     test = daily_tests.get(day)
                     if test:
                         text = f"📝 {day} - Günün Testi:\n"
@@ -85,7 +85,7 @@ def send_daily_content():
                         bot.send_message(CHANNEL_USERNAME, text=text)
 
                 # Gecə 21:00 - cavablar
-                if hour == 22 and minute == 42:
+                if hour == 22 and minute == 48:
                     test = daily_tests.get(day)
                     if test:
                         text = f"✅ {day} - Test Cavabları:\n"
