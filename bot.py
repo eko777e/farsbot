@@ -169,10 +169,10 @@ async def ai_command(_, m: Message):
 
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=21, minute=04)  # Günün sözləri
-scheduler.add_job(send_grammar, "cron", hour=21, minute=05)       # Qrammatika
-scheduler.add_job(send_test, "cron", hour=21, minute=06)          # Test
-scheduler.add_job(send_answers, "cron", hour=21, minute=07)       # Test cavabları
+scheduler.add_job(send_daily_words, "cron", hour=21, minute=4)  # Günün sözləri
+scheduler.add_job(send_grammar, "cron", hour=21, minute=5)       # Qrammatika
+scheduler.add_job(send_test, "cron", hour=21, minute=6)          # Test
+scheduler.add_job(send_answers, "cron", hour=21, minute=7)       # Test cavabları
 scheduler.start()
 
 app.run()
