@@ -218,3 +218,4 @@ daily_tests = {
         ("İsmin hal şəkilçiləri **hansı cümlədə düzgündür?**", ["Evin (genitiv)", "evə (dativ)", "evi (məf'ul)"], 0),
         ("İsmin hal şəkilçiləri **hansı cümlədə düzgündür?**", ["O evin", "Ev ona", "Evin o"], 0)
     ],
+}
