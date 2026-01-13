@@ -6,15 +6,15 @@ import threading
 import time
 import random
 
-from word import daily_words
-from gram import grammar_lessons
-from tests import daily_tests
+from word import daily_words          # Günlük sözlər: dict {gün: [(az, fars, izah), ...]}
+from gram import grammar_lessons      # Günlük qrammatika: dict {gün: {"ders":..., "izah":..., "nümunə":...}}
+from tests import daily_tests         # Günlük testlər: dict {gün: {"sual": [(sual, [variant1..], correct_index), ...]}}
 
 TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
 CHANNEL_USERNAME = "@farsdersler"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# ---- START / ANKET ----
+# ------------------- START / ANKET -------------------
 @bot.message_handler(commands=['start'])
 def start(message):
     kb = InlineKeyboardMarkup()
@@ -50,8 +50,37 @@ def lesson_consent(call):
     else:
         bot.send_message(call.message.chat.id, "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
-# ---- FUNKSİYALAR ----
-sent_flags = {}  # Gün üzrə hansı göndərilib
+# ------------------- GÜNDƏLİK GÖNDƏRİM -------------------
+sent_flags = {}          # Gün üzrə nə göndərilib
+user_answers = {}        # İstifadəçi cavabları: user_id -> set edilmiş sual id-ləri
+
+# Test göndərmə funksiyası (5 sual, 5 ayrı vaxt)
+def send_daily_test(day):
+    test = daily_tests.get(day)
+    if not test:
+        return
+
+    # 5 sual üçün vaxtlar
+    question_times = ["23:32", "23:33", "23:34", "23:35", "23:36"]
+
+    for idx, q in enumerate(test['sual'][:5]):  # yalnız ilk 5 sual
+        sual_text, variants, correct_index = q
+        choices = variants.copy()
+        random.shuffle(choices)
+
+        kb = InlineKeyboardMarkup()
+        for var in choices:
+            is_correct = "1" if var == variants[correct_index] else "0"
+            kb.add(InlineKeyboardButton(var, callback_data=f"{day}_q{idx+1}_{is_correct}"))
+
+        # Göndərmə vaxtına qədər gözlə
+        hour, minute = map(int, question_times[idx].split(":"))
+        while True:
+            now = datetime.now(pytz.timezone("Asia/Baku"))
+            if now.hour == hour and now.minute == minute:
+                bot.send_message(CHANNEL_USERNAME, f"{idx+1}. {sual_text}", reply_markup=kb)
+                break
+            time.sleep(10)
 
 def send_daily_content():
     days = list(daily_words.keys())
@@ -67,7 +96,7 @@ def send_daily_content():
             sent_flags[day] = {"words": False, "grammar": False, "test": False}
 
         # ---- SÖZLƏR ----
-        if hour == 23 and minute == 17 and not sent_flags[day]["words"]:
+        if hour == 23 and minute == 30 and not sent_flags[day]["words"]:
             words = daily_words[day]
             text = f"📖 {day} - Günün sözləri:\n"
             for w in words:
@@ -76,7 +105,7 @@ def send_daily_content():
             sent_flags[day]["words"] = True
 
         # ---- QRAMMATİKA ----
-        if hour == 23 and minute == 18 and not sent_flags[day]["grammar"]:
+        if hour == 23 and minute == 31 and not sent_flags[day]["grammar"]:
             lesson = grammar_lessons.get(day)
             if lesson:
                 text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
@@ -84,22 +113,8 @@ def send_daily_content():
             sent_flags[day]["grammar"] = True
 
         # ---- TEST ----
-        if hour == 23 and minute == 19 and not sent_flags[day]["test"]:
-            test = daily_tests.get(day)
-            if test:
-                for idx, q in enumerate(test['sual'], 1):
-                    sual_text, variants, correct_index = q
-                    # Variantları qarışdır
-                    choices = variants.copy()
-                    random.shuffle(choices)
-
-                    kb = InlineKeyboardMarkup()
-                    for i, var in enumerate(choices):
-                        # Callback data: gün_sualidx_variantidx_düzsəhf
-                        is_correct = "1" if var == variants[correct_index] else "0"
-                        kb.add(InlineKeyboardButton(var, callback_data=f"{day}_q{idx}_{is_correct}"))
-
-                    bot.send_message(CHANNEL_USERNAME, f"{idx}. {sual_text}", reply_markup=kb)
+        if not sent_flags[day]["test"]:
+            send_daily_test(day)
             sent_flags[day]["test"] = True
 
         # ---- GÜN SONU 00:00 ----
@@ -108,22 +123,39 @@ def send_daily_content():
 
         time.sleep(20)
 
-# ---- CALLBACK HANDLER: INLINE BUTTON ----
-@bot.callback_query_handler(func=lambda call: True)
+# ------------------- CALLBACK HANDLER -------------------
+@bot.callback_query_handler(func=lambda call: "_q" in call.data)
 def handle_quiz(call):
-    if "_q" in call.data:
-        parts = call.data.split("_q")
-        day = parts[0]
-        q_part = parts[1]
-        question_idx, is_correct = q_part.split("_")
-        is_correct = bool(int(is_correct))
-        if is_correct:
-            bot.answer_callback_query(call.id, "✅ Düzgün cavab!")
-        else:
-            bot.answer_callback_query(call.id, "❌ Səhf cavab!")
+    user_id = call.from_user.id
+    if user_id not in user_answers:
+        user_answers[user_id] = set()
 
-# ---- THREAD ----
+    # Callback data: day_qidx_iscorrect
+    parts = call.data.split("_")
+    day = parts[0]
+    q_idx = parts[1]
+    is_correct = bool(int(parts[2]))
+    question_id = f"{day}_{q_idx}"
+
+    # Yalnız bir dəfə cavab ver
+    if question_id in user_answers[user_id]:
+        bot.answer_callback_query(call.id, "Siz artıq cavab vermisiniz!", show_alert=True)
+        return
+
+    user_answers[user_id].add(question_id)
+
+    # Mesajı edit et
+    old_text = call.message.text
+    if is_correct:
+        new_text = f"{old_text}\n\n✅ Düzgün cavab! Zəhmət olmasa digər sualı gözləyin..."
+    else:
+        new_text = f"{old_text}\n\n❌ Səhf cavab! Zəhmət olmasa digər sualı gözləyin..."
+
+    bot.edit_message_text(new_text, call.message.chat.id, call.message.message_id)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+
+# ------------------- THREAD -------------------
 threading.Thread(target=send_daily_content).start()
 
-# ---- BOT POLLING ----
+# ------------------- BOT POLLING -------------------
 bot.infinity_polling()
