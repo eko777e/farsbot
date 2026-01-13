@@ -28,7 +28,7 @@ HEADERS = {
 
 daily_data = {
     "words": [],
-    "grammar": ""
+    "grammar": []
 }
 
 # ================= START =================
