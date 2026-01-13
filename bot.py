@@ -77,7 +77,7 @@ async def anket_steps(_, m: Message):
 
         if m.text.lower() == "bəli":
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📚 Dərs Kanalı", url=config.CHANNEL_LINK)]
+                [InlineKeyboardButton("📚 Dərs Kanalı", url="https://t.me/farsdersleri")]
             ])
             await m.reply(
                 "**Zəhmət olmasa** `Dərs Kanalı` **buttonuna toxunaraq kanala qatılın**",
@@ -121,10 +121,10 @@ async def help_answer(m: Message):
 
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=20, minute=19)  # Günün sözləri
-scheduler.add_job(send_grammar, "cron", hour=13, minute=20)                  # Qrammatika
-scheduler.add_job(send_test, "cron", hour=19, minute=21)                     # Test
-scheduler.add_job(send_answers, "cron", hour=21, minute=22)                  # Test cavabları
+scheduler.add_job(send_daily_words, "cron", hour=20, minute=23)  # Günün sözləri
+scheduler.add_job(send_grammar, "cron", hour=13, minute=24)                  # Qrammatika
+scheduler.add_job(send_test, "cron", hour=19, minute=25)                     # Test
+scheduler.add_job(send_answers, "cron", hour=21, minute=26)                  # Test cavabları
 scheduler.start()
 
 app.run()
