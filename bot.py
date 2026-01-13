@@ -54,10 +54,6 @@ async def anket(_, q):
 async def anket_steps(_, m: Message):
     uid = m.from_user.id
 
-    if uid not in user_state:
-        await help_answer(m)
-        return
-
     if user_state[uid] == "name":
         database.cur.execute(
             "INSERT OR IGNORE INTO users (user_id,name) VALUES (?,?)",
