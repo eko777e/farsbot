@@ -121,10 +121,10 @@ async def help_answer(m: Message):
 
 # ================= SCHEDULER =================
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
-scheduler.add_job(send_daily_words, "cron", hour=20, minute=27)  # Günün sözləri
-scheduler.add_job(send_grammar, "cron", hour=20, minute=28)                  # Qrammatika
-scheduler.add_job(send_test, "cron", hour=20, minute=29)                     # Test
-scheduler.add_job(send_answers, "cron", hour=20, minute=ep)                  # Test cavabları
+scheduler.add_job(send_daily_words, "cron", hour=20, minute=29)  # Günün sözləri
+scheduler.add_job(send_grammar, "cron", hour=20, minute=30)                  # Qrammatika
+scheduler.add_job(send_test, "cron", hour=20, minute=31)                     # Test
+scheduler.add_job(send_answers, "cron", hour=20, minute=32)                  # Test cavabları
 scheduler.start()
 
 app.run()
