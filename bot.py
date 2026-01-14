@@ -8,8 +8,8 @@ from word import daily_words          # Günlük sözlər
 from gram import grammar_lessons      # Günlük qrammatika
 from tests import daily_tests         # Günlük testlər
 
-TOKEN = "7962643816:AAFIa0wZ4iVKSCoNO9Jfeuv6m33Uf_77SXY"
-CHANNEL_USERNAME = "@farsdersler"
+TOKEN = "8545859230:AAEYjGfFswCEHUYMheZOr9e3hKX0KrJiDik"
+CHANNEL_USERNAME = "@FarscaOyrenAz"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # ------------------- START / ANKET -------------------
@@ -58,7 +58,7 @@ def send_daily_test_poll(day):
         return
 
     # Suallar üçün vaxtlar
-    question_times = ["23:54", "10:00", "12:00", "15:00", "19:00"]
+    question_times = ["20:00", "20:01", "20:02", "20:03", "20:04"]
 
     for idx, (sual_text, variants, correct_index) in enumerate(test_list[:5]):
         hour, minute = map(int, question_times[idx].split(":"))
