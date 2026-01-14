@@ -19,17 +19,17 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 def start(message):
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📜 Anket", callback_data="anket"))
-    bot.send_message(message.chat.id, "**Salam zəhmət olmasa** `Anket` **buttonuna toxunaraq məlumatları doldurun** ✍️", reply_markup=kb)
+    bot.send_message(message.chat.id, "Salam zəhmət olmasa Anket buttonuna toxunaraq məlumatları doldurun ✍️", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda call: call.data=="anket")
 def anket(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
-    msg = bot.send_message(call.message.chat.id, "**Adınız nədir?**")
+    msg = bot.send_message(call.message.chat.id, "Adınız nədir?")
     bot.register_next_step_handler(msg, get_name)
 
 def get_name(message):
     user_name = message.text
-    msg = bot.send_message(message.chat.id, "**Yaşınız neçədir?**")
+    msg = bot.send_message(message.chat.id, "Yaşınız neçədir?")
     bot.register_next_step_handler(msg, get_age, user_name)
 
 def get_age(message, user_name):
@@ -39,16 +39,16 @@ def get_age(message, user_name):
         InlineKeyboardButton("Bəli", callback_data="yes"),
         InlineKeyboardButton("Xeyr", callback_data="no")
     )
-    bot.send_message(message.chat.id, "**Dərslərə qoşulmağa könüllü razısınızmı?**", reply_markup=kb)
+    bot.send_message(message.chat.id, "Dərslərə qoşulmağa könüllü razısınızmı?", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["yes","no"])
 def lesson_consent(call):
     if call.data == "yes":
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton("📚 Dərs Kanalı", url=f"https://t.me/{CHANNEL_USERNAME.strip('@')}"))
-        bot.send_message(call.message.chat.id, "**Zəhmət olmasa Dərs Kanalı buttonuna toxunaraq kanala qatılın**", reply_markup=kb)
+        bot.send_message(call.message.chat.id, "Zəhmət olmasa Dərs Kanalı buttonuna toxunaraq kanala qatılın", reply_markup=kb)
     else:
-        bot.send_message(call.message.chat.id, "**Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm**")
+        bot.send_message(call.message.chat.id, "Könüllü razılığınız olmadığı üçün sizi dərs kanalına qata bilməyəcəm")
 
 
 # ------------------- GÜNDƏLİK TESTLƏR -------------------
@@ -96,7 +96,7 @@ def send_daily_content():
         # ---- SÖZLƏR ----
         if not sent_flags[day]["words"] and hour == 8 and minute == 0:
             words = daily_words[day]
-            text = f"📖 {day} - **Günün sözləri:**\n"
+            text = f"📖 {day} - Günün sözləri:\n"
             for w in words:
                 text += f"{w[0]} • {w[1]} • {w[2]}\n"
             bot.send_message(CHANNEL_USERNAME, text=text)
@@ -106,7 +106,7 @@ def send_daily_content():
         if not sent_flags[day]["grammar"] and hour == 13 and minute == 0:
             lesson = grammar_lessons.get(day)
             if lesson:
-                text = f"📚 {day} - **Gündəlik Qrammatika** ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
+                text = f"📚 {day} - Gündəlik Qrammatika ({lesson['ders']}):\n{lesson['izah']}\nNümunə: {lesson['nümunə']}"
                 bot.send_message(CHANNEL_USERNAME, text=text)
             sent_flags[day]["grammar"] = True
 
