@@ -3,6 +3,7 @@ from datetime import datetime
 import pytz
 import threading
 import time
+import random  # ✅ Random üçün əlavə olundu
 
 from word import daily_words          # Günlük sözlər
 from gram import grammar_lessons      # Günlük qrammatika
@@ -67,13 +68,19 @@ def send_daily_test_poll(day):
         while True:
             now = datetime.now(pytz.timezone("Asia/Baku"))
             if now.hour == hour and now.minute == minute:
+                
+                # ✅ Variantları qarışdır və yeni doğru cavabı təyin et
+                shuffled_variants = variants.copy()
+                random.shuffle(shuffled_variants)
+                new_correct_index = shuffled_variants.index(variants[correct_index])
+
                 bot.send_poll(
                     chat_id=CHANNEL_USERNAME,
                     question=f"{idx+1}. {sual_text}",
-                    options=variants,
+                    options=shuffled_variants,
                     is_anonymous=False,
                     type="quiz",
-                    correct_option_id=correct_index
+                    correct_option_id=new_correct_index
                 )
                 break
             time.sleep(5)
