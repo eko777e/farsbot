@@ -236,3 +236,4 @@ daily_tests = {
     ("İsmin hal şəkilçiləri **hansı cümlədə düzgündür?**", ["خانه‌ی (مضاف)", "به خانه (مجرور)", "خانه (مفعول)"], 0),
     ("İsmin hal şəkilçiləri **hansı cümlədə düzgündür?**", ["او خانه را", "خانه برای او", "خانه او"], 0)
 ],
+}
