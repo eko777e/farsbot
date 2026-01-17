@@ -10,7 +10,7 @@ from gram import grammar_lessons      # Günlük qrammatika
 from tests import daily_tests         # Günlük testlər
 
 TOKEN = "8545859230:AAEYjGfFswCEHUYMheZOr9e3hKX0KrJiDik"
-CHANNEL_USERNAME = "@FarscaOyrenAz"
+CHANNEL_USERNAME = "@farscaaa"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # ------------------- START / ANKET -------------------
