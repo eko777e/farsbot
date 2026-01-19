@@ -17,7 +17,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 TZ = pytz.timezone("Asia/Baku")
 
 # ================= START DATE =================
-COURSE_START_DATE = date(2026, 1, 1)  # kursun başladığı gün
+COURSE_START_DATE = date(2026, 1, 19)  # kursun başladığı gün
 
 # ================= DAY CALCULATOR =================
 def get_today_day():
