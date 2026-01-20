@@ -3,6 +3,8 @@ from datetime import datetime, date
 import pytz
 import time
 import random
+import threading
+import sqlite3
 
 from word import daily_words
 from gram import grammar_lessons
@@ -16,10 +18,8 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 TZ = pytz.timezone("Asia/Baku")
 
-# ================= START DATE =================
-COURSE_START_DATE = date(2026, 1, 19)  # kursun başladığı gün
+COURSE_START_DATE = date(2026, 1, 20)
 
-# ================= DAY CALCULATOR =================
 def get_today_day():
     today = datetime.now(TZ).date()
     diff = (today - COURSE_START_DATE).days
@@ -27,6 +27,34 @@ def get_today_day():
     if 0 <= diff < len(days):
         return days[diff]
     return None
+
+# ================= DATABASE =================
+conn = sqlite3.connect("daily_sent.db", check_same_thread=False)
+cursor = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS sent (
+    date TEXT PRIMARY KEY,
+    words INTEGER DEFAULT 0,
+    grammar INTEGER DEFAULT 0,
+    test INTEGER DEFAULT 0
+)
+""")
+conn.commit()
+
+def check_sent(content):
+    today = str(datetime.now(TZ).date())
+    cursor.execute("SELECT words, grammar, test FROM sent WHERE date=?", (today,))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO sent(date) VALUES(?)", (today,))
+        conn.commit()
+        return False
+    return row[{"words":0,"grammar":1,"test":2}[content]] == 1
+
+def mark_sent(content):
+    today = str(datetime.now(TZ).date())
+    cursor.execute(f"UPDATE sent SET {content}=1 WHERE date=?", (today,))
+    conn.commit()
 
 # ================= START / ANKET =================
 @bot.message_handler(commands=['start'])
@@ -76,29 +104,35 @@ def consent(call):
         bot.send_message(call.message.chat.id, "Razılıq olmadığı üçün proses dayandırıldı.")
 
 # ================= DAILY CONTENT =================
-sent = {"words": False, "grammar": False, "test": False}
+# Burada istədiyin dəqiqələri və saatları qoyursan:
+SEND_HOURS = {
+    "words": (12, 47),      # 08:30
+    "grammar": (12, 48),   # 13:45
+    "test": (12, 49)       # 20:15
+}
 
 def daily_sender():
-    global sent
     while True:
         now = datetime.now(TZ)
+        today = now.date()
         hour, minute = now.hour, now.minute
         day = get_today_day()
-
         if not day:
-            time.sleep(60)
+            time.sleep(30)
             continue
 
-        # ---- WORDS 08:00 ----
-        if hour == 8 and minute == 0 and not sent["words"]:
+        # WORDS
+        wh, wm = SEND_HOURS["words"]
+        if (hour == wh and minute == wm) and not check_sent("words"):
             text = f"📖 {day} – Günün sözləri:\n\n"
             for w in daily_words[day]:
                 text += f"• {w[0]} — {w[1]} — {w[2]}\n"
             bot.send_message(CHANNEL_USERNAME, text)
-            sent["words"] = True
+            mark_sent("words")
 
-        # ---- GRAMMAR 13:00 ----
-        if hour == 13 and minute == 0 and not sent["grammar"]:
+        # GRAMMAR
+        gh, gm = SEND_HOURS["grammar"]
+        if (hour == gh and minute == gm) and not check_sent("grammar"):
             lesson = grammar_lessons.get(day)
             if lesson:
                 text = (
@@ -108,42 +142,35 @@ def daily_sender():
                     f"Nümunə:\n{lesson['nümunə']}"
                 )
                 bot.send_message(CHANNEL_USERNAME, text)
-            sent["grammar"] = True
+            mark_sent("grammar")
 
-        # ---- TEST 20:00 ----
-        if hour == 20 and minute == 0 and not sent["test"]:
+        # TEST
+        th, tm = SEND_HOURS["test"]
+        if (hour == th and minute == tm) and not check_sent("test"):
             send_tests(day)
-            sent["test"] = True
+            mark_sent("test")
 
-        # ---- RESET AT 00:00 ----
-        if hour == 0 and minute == 0:
-            sent = {"words": False, "grammar": False, "test": False}
-
-        time.sleep(20)
+        time.sleep(20)  # hər 20 saniyədən bir yoxlayır
 
 # ================= TEST SENDER =================
 def send_tests(day):
     tests = daily_tests.get(day)
     if not tests:
         return
-
     for i, (q, options, correct) in enumerate(tests[:5]):
         shuffled = options.copy()
         random.shuffle(shuffled)
         correct_id = shuffled.index(options[correct])
-
         bot.send_poll(
             chat_id=CHANNEL_USERNAME,
             question=f"{i+1}. {q}",
             options=shuffled,
             type="quiz",
             correct_option_id=correct_id,
-            is_anonymous=False
+            is_anonymous=True
         )
-        time.sleep(60)
+        time.sleep(60)  # poll arası 1 dəqiqə
 
 # ================= START THREAD =================
-import threading
 threading.Thread(target=daily_sender, daemon=True).start()
-
 bot.infinity_polling()
