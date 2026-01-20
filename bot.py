@@ -106,9 +106,9 @@ def consent(call):
 # ================= DAILY CONTENT =================
 # Burada istədiyin dəqiqələri və saatları qoyursan:
 SEND_HOURS = {
-    "words": (12, 47),      # 08:30
-    "grammar": (12, 48),   # 13:45
-    "test": (12, 49)       # 20:15
+    "words": (08, 00),      # 08:30
+    "grammar": (13, 00),   # 13:45
+    "test": (20, 00)       # 20:15
 }
 
 def daily_sender():
