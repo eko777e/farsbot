@@ -41,13 +41,18 @@ CREATE TABLE IF NOT EXISTS sent (
 """)
 conn.commit()
 
+def ensure_today_row():
+    today = str(datetime.now(TZ).date())
+    cursor.execute("SELECT 1 FROM sent WHERE date=?", (today,))
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO sent(date) VALUES(?)", (today,))
+        conn.commit()
+
 def check_sent(content):
     today = str(datetime.now(TZ).date())
     cursor.execute("SELECT words, grammar, test FROM sent WHERE date=?", (today,))
     row = cursor.fetchone()
     if not row:
-        cursor.execute("INSERT INTO sent(date) VALUES(?)", (today,))
-        conn.commit()
         return False
     return row[{"words":0,"grammar":1,"test":2}[content]] == 1
 
@@ -104,17 +109,16 @@ def consent(call):
         bot.send_message(call.message.chat.id, "Razılıq olmadığı üçün proses dayandırıldı.")
 
 # ================= DAILY CONTENT =================
-# Burada istədiyin dəqiqələri və saatları qoyursan:
 SEND_HOURS = {
-    "words": (08, 00),      # 08:30
+    "words": (11, 59),      # 08:30
     "grammar": (13, 00),   # 13:45
-    "test": (20, 00)       # 20:15
+    "test": (19, 01)       # 20:15
 }
 
 def daily_sender():
     while True:
+        ensure_today_row()
         now = datetime.now(TZ)
-        today = now.date()
         hour, minute = now.hour, now.minute
         day = get_today_day()
         if not day:
