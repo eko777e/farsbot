@@ -112,7 +112,7 @@ def consent(call):
 SEND_HOURS = {
     "words": (12, 10),      # 08:30
     "grammar": (13, 00),   # 13:45
-    "test": (19, 01)       # 20:15
+    "test": (19, 1)       # 20:15
 }
 
 def daily_sender():
