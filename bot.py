@@ -110,7 +110,7 @@ def consent(call):
 
 # ================= DAILY CONTENT =================
 SEND_HOURS = {
-    "words": (11, 59),      # 08:30
+    "words": (12, 10),      # 08:30
     "grammar": (13, 00),   # 13:45
     "test": (19, 01)       # 20:15
 }
