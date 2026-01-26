@@ -110,9 +110,9 @@ def consent(call):
 
 # ================= DAILY CONTENT =================
 SEND_HOURS = {
-    "words": (12, 10),      # 08:30
-    "grammar": (13, 00),   # 13:45
-    "test": (19, 1)       # 20:15
+    "words": (11, 15),      # 08:30
+    "grammar": (12, 00),   # 13:45
+    "test": (19, 00)       # 20:15
 }
 
 def daily_sender():
@@ -174,6 +174,104 @@ def send_tests(day):
             is_anonymous=True
         )
         time.sleep(60)  # poll arası 1 dəqiqə
+
+# ================= ADMIN PANEL =================
+@bot.message_handler(commands=['adminpanel'])
+def admin_panel(message):
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("🔄 Təkrar Dərs", callback_data="repeat"),
+        InlineKeyboardButton("⭕ Qrammatika", callback_data="only_grammar")
+    )
+    kb.row(
+        InlineKeyboardButton("♂️ Test", callback_data="only_test"),
+        InlineKeyboardButton("💬 Söz", callback_data="only_words")
+    )
+    bot.send_message(
+        message.chat.id,
+        "Zəhmət olmasa panel qismini seçib davam edin ✅",
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda c: c.data in ["repeat","only_grammar","only_test","only_words"])
+def admin_actions(call):
+    day = get_today_day()
+    if not day:
+        bot.send_message(call.message.chat.id, "Bugün üçün dərs mövcud deyil.")
+        return
+
+    if call.data == "repeat":
+        choices = []
+        # sözlər
+        if day in daily_words:
+            text = f"📖 {day} – Günün sözləri:\n\n"
+            for w in daily_words[day]:
+                text += f"• {w[0]} — {w[1]} — {w[2]}\n"
+            choices.append(text)
+        # qrammatika
+        if day in grammar_lessons:
+            lesson = grammar_lessons[day]
+            text = (
+                f"📚 {day} – Qrammatika\n\n"
+                f"<b>{lesson['ders']}</b>\n\n"
+                f"{lesson['izah']}\n\n"
+                f"Nümunə:\n{lesson['nümunə']}"
+            )
+            choices.append(text)
+        # test
+        if day in daily_tests:
+            tests = daily_tests[day]
+            if tests:
+                q, options, correct = random.choice(tests)
+                shuffled = options.copy()
+                random.shuffle(shuffled)
+                correct_id = shuffled.index(options[correct])
+                bot.send_poll(
+                    chat_id=call.message.chat.id,
+                    question=q,
+                    options=shuffled,
+                    type="quiz",
+                    correct_option_id=correct_id,
+                    is_anonymous=True
+                )
+                return
+        # random seçim
+        if choices:
+            bot.send_message(call.message.chat.id, random.choice(choices))
+
+    elif call.data == "only_grammar":
+        lesson = grammar_lessons.get(day)
+        if lesson:
+            text = (
+                f"📚 {day} – Qrammatika\n\n"
+                f"<b>{lesson['ders']}</b>\n\n"
+                f"{lesson['izah']}\n\n"
+                f"Nümunə:\n{lesson['nümunə']}"
+            )
+            bot.send_message(call.message.chat.id, text)
+
+    elif call.data == "only_test":
+        tests = daily_tests.get(day)
+        if tests:
+            q, options, correct = random.choice(tests)
+            shuffled = options.copy()
+            random.shuffle(shuffled)
+            correct_id = shuffled.index(options[correct])
+            bot.send_poll(
+                chat_id=call.message.chat.id,
+                question=q,
+                options=shuffled,
+                type="quiz",
+                correct_option_id=correct_id,
+                is_anonymous=True
+            )
+
+    elif call.data == "only_words":
+        if day in daily_words:
+            text = f"📖 {day} – Günün sözləri:\n\n"
+            for w in daily_words[day]:
+                text += f"• {w[0]} — {w[1]} — {w[2]}\n"
+            bot.send_message(call.message.chat.id, text)
 
 # ================= START THREAD =================
 threading.Thread(target=daily_sender, daemon=True).start()
